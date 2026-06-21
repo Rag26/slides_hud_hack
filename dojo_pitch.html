@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dojo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fustat:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#fbfaf7; --ink:#1c1b18; --muted:#6b6862; --subtle:#9a978f;
+    --line:#e6e3dc; --card:#f4f2ec; --accent:#c0392b; --accent2:#a93226;
+    --accent-soft:#f6e7e4; --good:#4a7355;
+    --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+    --sans:"Fustat",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#efece5;color:var(--ink);overflow:hidden;font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+  /* fixed 16:9 stage, scaled to viewport */
+  #stage{position:absolute;top:50%;left:50%;width:1280px;height:720px;
+    transform:translate(-50%,-50%);transform-origin:center center;
+    background:var(--canvas);overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.18)}
+
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;
+    align-items:flex-start;padding:78px 92px;text-align:left}
+  .slide.active{display:flex}
+  .slide.grid-bg{background-image:radial-gradient(var(--line) 1.2px,transparent 1.2px);
+    background-size:24px 24px;background-position:-2px -2px}
+
+  /* eyebrow */
+  .eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent);font-weight:500;display:flex;align-items:center;gap:13px;margin-bottom:26px}
+  .eyebrow .idx{color:var(--subtle);font-weight:400}
+  .eyebrow .bar{width:24px;height:1px;background:var(--subtle)}
+
+  /* type */
+  .wordmark{font-family:var(--serif);font-size:168px;line-height:.86;letter-spacing:-.03em;font-weight:400}
+  .claim{font-size:29px;line-height:1.35;font-weight:400;color:var(--muted);max-width:30ch;margin-top:22px}
+  .claim b{color:var(--ink);font-weight:600}
+  .statement{font-family:var(--serif);font-size:78px;line-height:1.04;letter-spacing:-.01em;
+    font-weight:400;max-width:21ch}
+  .statement .ac{color:var(--accent);font-style:italic}
+  .hlg{font-size:50px;line-height:1.08;letter-spacing:-.022em;font-weight:600;max-width:18ch}
+  .hmd{font-size:33px;line-height:1.15;letter-spacing:-.014em;font-weight:600}
+  .lead{font-size:21px;line-height:1.55;color:var(--muted);max-width:54ch;margin-top:22px;font-weight:400}
+  .lead b{color:var(--ink);font-weight:600}
+  .foot{font-family:var(--mono);font-size:13px;color:var(--subtle);letter-spacing:.02em}
+
+  .kanji{position:absolute;right:-20px;top:50%;transform:translateY(-50%);font-family:var(--serif);
+    font-size:470px;line-height:1;color:var(--accent);opacity:.06;pointer-events:none;user-select:none}
+
+  /* points (designed bullets) */
+  .pts{list-style:none;display:flex;flex-direction:column;gap:22px;margin-top:36px;max-width:60ch}
+  .pts li{font-size:21px;line-height:1.45;padding-left:30px;position:relative;color:var(--muted)}
+  .pts li b{color:var(--ink);font-weight:600}
+  .pts li::before{content:"";position:absolute;left:0;top:.55em;width:9px;height:9px;
+    background:var(--accent);border-radius:2px;transform:rotate(45deg)}
+
+  /* asymmetric split */
+  .split{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center;width:100%}
+
+  /* mini flow */
+  .flow{display:flex;flex-direction:column;gap:7px}
+  .flow .node{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 18px;font-size:17px}
+  .flow .node.key{border-color:var(--accent);background:var(--accent-soft)}
+  .flow .node small{display:block;color:var(--muted);font-size:13px;margin-top:3px}
+  .flow .ar{color:var(--subtle);font-size:15px;padding-left:18px}
+
+  /* numbered rows (games) */
+  .rows{display:flex;flex-direction:column;width:100%;margin-top:30px}
+  .row{display:flex;align-items:center;gap:26px;padding:24px 4px;border-top:1px solid var(--line)}
+  .row:last-child{border-bottom:1px solid var(--line)}
+  .row .ix{font-family:var(--mono);font-size:22px;color:var(--subtle);width:34px;flex:none}
+  .row .nm{font-size:26px;font-weight:600;letter-spacing:-.01em;width:390px;flex:none;white-space:nowrap}
+  .row .ds{font-size:18px;color:var(--muted);line-height:1.4}
+  .row .pill{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--accent);background:var(--accent-soft);padding:3px 9px;border-radius:5px;margin-left:10px;
+    vertical-align:middle}
+
+  /* stepped (architecture) */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;width:100%;margin-top:38px}
+  .step .ix{font-family:var(--mono);font-size:15px;color:var(--accent);margin-bottom:14px}
+  .step h4{font-size:22px;font-weight:600;letter-spacing:-.01em;margin-bottom:8px}
+  .step p{font-size:16px;color:var(--muted);line-height:1.5}
+  .step{padding-top:18px;border-top:2px solid var(--ink)}
+
+  /* big number */
+  .bignum{font-family:var(--serif);font-size:150px;line-height:.92;letter-spacing:-.02em}
+  .bignum .u{font-size:64px;color:var(--muted)}
+  .statrow{display:flex;gap:54px;margin-top:46px;flex-wrap:wrap}
+  .statrow .n{font-size:34px;font-weight:600;letter-spacing:-.01em}
+  .statrow .l{font-size:14px;color:var(--muted);margin-top:5px;max-width:20ch;line-height:1.4}
+
+  /* chain (thesis) */
+  .chain{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:40px}
+  .chain .c{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:14px 20px;font-size:19px;font-weight:500}
+  .chain .c b{color:var(--accent);font-weight:600}
+  .chain .sep{color:var(--accent);font-size:22px}
+
+  /* versus (result) */
+  .versus{display:flex;align-items:center;gap:26px;margin-top:40px;width:100%;max-width:760px}
+  .versus .vbox{flex:1;position:relative;border:1px solid var(--line);border-radius:12px;padding:26px;text-align:center;background:#fff}
+  .versus .vbox.win{border-color:var(--accent);background:var(--accent-soft)}
+  .versus .vbox .t{font-size:23px;font-weight:600;letter-spacing:-.01em}
+  .versus .vbox .s{font-size:14px;color:var(--muted);margin-top:6px}
+  .versus .vs{font-family:var(--serif);font-size:38px;color:var(--subtle)}
+  .versus .tag-win{position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:#fff;font-family:var(--mono);font-size:11px;letter-spacing:.1em;
+    padding:3px 11px;border-radius:6px}
+
+  /* callout */
+  .callout{border-left:3px solid var(--accent);background:#fff;border:1px solid var(--line);
+    border-left:3px solid var(--accent);border-radius:6px;padding:22px 26px;margin-top:30px;
+    max-width:74ch;font-size:18px;line-height:1.55;color:var(--ink)}
+  .callout b{font-weight:600;color:var(--accent2)}
+
+  /* diagram */
+  .diagram-card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;
+    margin-top:14px;width:100%;display:flex}
+  .diagram-card svg{width:100%;height:auto;max-height:476px}
+
+  code{font-family:var(--mono);background:var(--card);padding:1px 6px;border-radius:4px;font-size:.86em}
+
+  /* chrome */
+  .brand{position:fixed;top:20px;left:26px;font-family:var(--serif);font-size:22px;color:var(--ink);z-index:30}
+  .counter{position:fixed;bottom:22px;left:26px;font-family:var(--mono);font-size:12px;color:var(--subtle);z-index:30}
+  .hint{position:fixed;top:24px;right:28px;font-family:var(--mono);font-size:11px;color:var(--subtle);z-index:30;letter-spacing:.05em}
+  .progress{position:fixed;bottom:0;left:0;height:3px;background:var(--accent);z-index:30;transition:width .3s ease}
+  .nav{position:fixed;bottom:20px;right:26px;display:flex;gap:9px;z-index:30}
+  .nav button{background:#fff;color:var(--ink);border:1px solid var(--line);width:40px;height:40px;
+    border-radius:50%;font-size:1.2rem;cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center}
+  .nav button:hover{border-color:var(--accent);color:var(--accent)}
+  .nav button:disabled{opacity:.3;cursor:default}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 1 — TITLE -->
+  <section class="slide active grid-bg">
+    <div>
+      <div class="eyebrow">HUD Frontier Hackathon</div>
+      <div class="wordmark">Dojo</div>
+      <p class="claim">First step to <b>Autoresearch in RL</b>.</p>
+    </div>
+    <div class="kanji">道</div>
+  </section>
+
+  <!-- 2 — THESIS -->
+  <section class="slide">
+    <div class="eyebrow"><span class="idx">01</span><span class="bar"></span>Why Now</div>
+    <h2 class="statement">By 2040, AI does <span class="ac">its own research.</span></h2>
+    <p class="lead">But it can only self-improve if it can build its own experiments.</p>
+    <div class="chain">
+      <span class="c">self-improvement</span><span class="sep">→</span>
+      <span class="c">author experiments</span><span class="sep">→</span>
+      <span class="c">in RL, that’s an <b>environment</b></span>
+    </div>
+  </section>
+
+  <!-- 3 — INTRODUCING DOJO -->
+  <section class="slide">
+    <div class="split">
+      <div>
+        <div class="eyebrow"><span class="idx">02</span><span class="bar"></span>Introducing Dojo</div>
+        <h2 class="hlg">An environment that trains a model to build environments.</h2>
+        <p class="lead">Meet <b>Sensei</b>: an LLM that learns to generate RL environments by training inside one. Its students are small <b>Players</b>.</p>
+      </div>
+      <div class="flow">
+        <div class="node">Sensei (LLM) designs an RL environment</div>
+        <div class="ar">↓</div>
+        <div class="node">Players (RL agents) train in it</div>
+        <div class="ar">↓</div>
+        <div class="node key">players beat baselines → win-ratio<small>= Sensei’s reward</small></div>
+        <div class="ar">↺</div>
+        <div class="node">update Sensei → repeat</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 — GAMES / REWARD -->
+  <section class="slide">
+    <div class="eyebrow"><span class="idx">03</span><span class="bar"></span>How Sensei Learns</div>
+    <h2 class="hmd">Players train in Sensei’s environment, then <span style="color:var(--accent)">fight baseline players.</span></h2>
+    <div class="rows">
+      <div class="row"><span class="ix">01</span><span class="nm">Ring-Out Duel<span class="pill">train</span></span><span class="ds">Knock the opponent off the platform.</span></div>
+      <div class="row"><span class="ix">02</span><span class="nm">Target Knockback<span class="pill">train</span></span><span class="ds">Punch the opponent <i>into</i> a target zone.</span></div>
+      <div class="row"><span class="ix">03</span><span class="nm">King of the Hill<span class="pill">final exam</span></span><span class="ds">Hold the zone longest. Never trained on.</span></div>
+    </div>
+    <p class="lead" style="margin-top:22px">Players’ <b>win-ratio vs. baselines</b> = Sensei’s reward.</p>
+  </section>
+
+  <!-- 5 — ALGORITHM -->
+  <section class="slide" style="justify-content:flex-start;padding-top:64px">
+    <div class="eyebrow"><span class="idx">04</span><span class="bar"></span>How It Works</div>
+    <h2 class="hmd" style="margin-bottom:2px">Two nested loops, then a fair exam.</h2>
+    <div class="diagram-card">
+      <svg viewBox="0 0 1480 800" xmlns="http://www.w3.org/2000/svg" aria-label="flow">
+        <defs><marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L7,3 L0,6 Z" fill="#9b9a97"/></marker></defs>
+        <rect x="30" y="34" width="850" height="752" rx="14" fill="#f7f5f1" stroke="#e3e0d9" stroke-width="1.5"/>
+        <rect x="30" y="34" width="850" height="5" rx="2" fill="#c0392b" opacity="0.55"/>
+        <text x="48" y="60" font-size="13.5" font-weight="700" fill="#1c1b18" font-family="sans-serif">OUTER LOOP · Train Sensei · GRPO on a Modal GPU</text>
+        <rect x="110" y="80" width="620" height="56" rx="9" fill="#fff" stroke="#d9d6cf" stroke-width="1.4"/>
+        <rect x="648" y="88" width="72" height="18" rx="5" fill="#f1efe9" stroke="#c4c1ba"/>
+        <text x="684" y="100" font-size="10" font-weight="700" fill="#6b6862" text-anchor="middle" font-family="sans-serif">Modal A100</text>
+        <text x="420" y="104" font-size="13" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">GPU Container · Qwen3-4B + LoRA</text>
+        <text x="420" y="122" font-size="11" fill="#6b6862" text-anchor="middle" font-family="sans-serif">sample G curricula per game</text>
+        <line x1="420" y1="136" x2="420" y2="149" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="70" y="150" width="720" height="400" rx="12" fill="#efece6" stroke="#dad7d0" stroke-width="1.5"/>
+        <text x="88" y="172" font-size="12.5" font-weight="700" fill="#1c1b18" font-family="sans-serif">INNER LOOP · Score one curriculum = the reward</text>
+        <text x="772" y="172" font-size="10.5" font-style="italic" fill="#6b6862" text-anchor="end" font-family="sans-serif">× G samples</text>
+        <rect x="140" y="190" width="580" height="42" rx="7" fill="#fff" stroke="#d9d6cf" stroke-width="1.3"/>
+        <text x="430" y="207" font-size="12.5" font-weight="600" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">① Parse + clamp the JSON params</text>
+        <text x="430" y="223" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">reject if malformed · clamp out-of-range</text>
+        <line x1="430" y1="232" x2="430" y2="247" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="140" y="248" width="580" height="42" rx="7" fill="#fff" stroke="#d9d6cf" stroke-width="1.3"/>
+        <text x="430" y="265" font-size="12.5" font-weight="600" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">② Build 15 held-out exam arenas</text>
+        <text x="430" y="281" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">disjoint from the training arena (anti-cheat)</text>
+        <line x1="430" y1="290" x2="430" y2="305" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="110" y="306" width="640" height="150" rx="9" fill="#fff" stroke="#dad7d0" stroke-width="1.3"/>
+        <rect x="588" y="314" width="148" height="18" rx="5" fill="#f1efe9" stroke="#c4c1ba"/>
+        <text x="662" y="326" font-size="10" font-weight="700" fill="#6b6862" text-anchor="middle" font-family="sans-serif">Modal · player workers</text>
+        <text x="128" y="327" font-size="12.5" font-weight="700" fill="#1c1b18" font-family="sans-serif">③ Train 3 PPO players in parallel</text>
+        <rect x="135" y="350" width="190" height="86" rx="7" fill="#faf9f6" stroke="#e3e0d9" stroke-width="1.2"/>
+        <text x="230" y="376" font-size="11.5" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">BASELINE</text>
+        <text x="230" y="397" font-size="10" fill="#6b6862" text-anchor="middle" font-family="sans-serif">untrained players</text>
+        <rect x="345" y="350" width="190" height="86" rx="7" fill="#faf9f6" stroke="#e3e0d9" stroke-width="1.2"/>
+        <text x="440" y="376" font-size="11.5" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">TRAIN</text>
+        <text x="440" y="397" font-size="10" fill="#6b6862" text-anchor="middle" font-family="sans-serif">PPO ~1000 eps</text>
+        <rect x="555" y="350" width="190" height="86" rx="7" fill="#faf9f6" stroke="#e3e0d9" stroke-width="1.2"/>
+        <text x="650" y="376" font-size="11.5" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">TRAINED</text>
+        <text x="650" y="397" font-size="10" fill="#6b6862" text-anchor="middle" font-family="sans-serif">vs. baseline</text>
+        <line x1="325" y1="393" x2="344" y2="393" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="535" y1="393" x2="554" y2="393" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="430" y1="456" x2="430" y2="471" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="140" y="472" width="580" height="44" rx="7" fill="#f6e7e4" stroke="#c0392b" stroke-width="1.5"/>
+        <text x="430" y="490" font-size="13" font-weight="700" fill="#a93226" text-anchor="middle" font-family="sans-serif">④ reward = players’ win-ratio vs. baseline</text>
+        <text x="430" y="506" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">how much better Sensei’s players do</text>
+        <path d="M430,516 L430,575 L245,575 L245,599" fill="none" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="70" y="600" width="350" height="58" rx="9" fill="#fff" stroke="#d9d6cf" stroke-width="1.4"/>
+        <text x="245" y="623" font-size="12.5" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">Host · per-game advantages (GRPO)</text>
+        <text x="245" y="641" font-size="11" fill="#6b6862" text-anchor="middle" font-family="sans-serif">A = (r − mean) / std</text>
+        <line x1="420" y1="629" x2="459" y2="629" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="460" y="600" width="350" height="58" rx="9" fill="#fff" stroke="#d9d6cf" stroke-width="1.4"/>
+        <text x="635" y="623" font-size="12.5" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">update → 1 LoRA step</text>
+        <text x="635" y="641" font-size="11" fill="#6b6862" text-anchor="middle" font-family="sans-serif">both games · grad-clip 1.0</text>
+        <path d="M810,629 L842,629 L842,108 L731,108" fill="none" stroke="#c0392b" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arr)"/>
+        <text x="861" y="370" font-size="11.5" font-weight="700" fill="#a93226" text-anchor="middle" transform="rotate(90 861 370)" font-family="sans-serif">&#8635; repeat &#215; N</text>
+        <path d="M635,658 L635,722 L892,722 L892,119 L939,119" fill="none" stroke="#9b9a97" stroke-width="2.2" marker-end="url(#arr)"/>
+        <text x="772" y="715" font-size="11" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">after N updates →</text>
+        <rect x="905" y="34" width="545" height="752" rx="14" fill="#f7f5f1" stroke="#e3e0d9" stroke-width="1.5"/>
+        <rect x="905" y="34" width="545" height="5" rx="2" fill="#b3b0a8"/>
+        <text x="923" y="60" font-size="13.5" font-weight="700" fill="#1c1b18" font-family="sans-serif">FINAL EXAM · Trained vs. baseline</text>
+        <rect x="940" y="90" width="230" height="58" rx="9" fill="#fff" stroke="#dad7d0" stroke-width="1.5"/>
+        <text x="1055" y="114" font-size="13" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">TRAINED Sensei</text>
+        <text x="1055" y="132" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">LoRA-tuned Qwen</text>
+        <rect x="1190" y="90" width="230" height="58" rx="9" fill="#fff" stroke="#d9d6cf" stroke-width="1.5"/>
+        <text x="1305" y="114" font-size="13" font-weight="700" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">BASE LLM</text>
+        <text x="1305" y="132" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">untrained (control)</text>
+        <line x1="1055" y1="148" x2="1055" y2="169" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="1305" y1="148" x2="1305" y2="169" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="955" y="170" width="200" height="44" rx="7" fill="#fff" stroke="#d9d6cf" stroke-width="1.3"/>
+        <text x="1055" y="197" font-size="12" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">generate curricula</text>
+        <rect x="1205" y="170" width="200" height="44" rx="7" fill="#fff" stroke="#d9d6cf" stroke-width="1.3"/>
+        <text x="1305" y="197" font-size="12" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">generate curricula</text>
+        <path d="M1055,214 L1055,238 L1177,238 L1177,255" fill="none" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <path d="M1305,214 L1305,238 L1177,238 L1177,255" fill="none" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="977" y="256" width="400" height="60" rx="9" fill="#fff" stroke="#dad7d0" stroke-width="1.4"/>
+        <text x="1177" y="283" font-size="12.5" font-weight="600" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">Players train · play King of the Hill</text>
+        <text x="1177" y="301" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">a game neither was trained on (fair fight)</text>
+        <line x1="1177" y1="316" x2="1177" y2="347" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="950" y="348" width="454" height="78" rx="10" fill="#f6e7e4" stroke="#c0392b" stroke-width="1.6"/>
+        <text x="1177" y="372" font-size="13.5" font-weight="700" fill="#a93226" text-anchor="middle" font-family="sans-serif">VERDICT</text>
+        <text x="1177" y="392" font-size="12" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">Sensei’s player &gt; baseline’s player</text>
+        <text x="1177" y="410" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">AND anti-gaming checks pass</text>
+        <line x1="1177" y1="426" x2="1177" y2="457" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="985" y="458" width="384" height="48" rx="8" fill="#fff" stroke="#d9d6cf" stroke-width="1.3"/>
+        <text x="1177" y="480" font-size="12" font-weight="600" fill="#1c1b18" text-anchor="middle" font-family="sans-serif">Head-to-head · 30 matches</text>
+        <text x="1177" y="496" font-size="10.5" fill="#6b6862" text-anchor="middle" font-family="sans-serif">binomial p-value</text>
+        <line x1="1177" y1="506" x2="1177" y2="539" stroke="#9b9a97" stroke-width="2" marker-end="url(#arr)"/>
+        <rect x="945" y="540" width="464" height="60" rx="10" fill="#eef1ec" stroke="#cdd9cd" stroke-width="1.8"/>
+        <text x="1177" y="575" font-size="12.5" font-weight="700" fill="#4a7355" text-anchor="middle" font-family="sans-serif">&#10003; PASS → better RL environments</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 6 — ANTI-CHEAT -->
+  <section class="slide">
+    <div class="eyebrow"><span class="idx">05</span><span class="bar"></span>Why It Can’t Cheat</div>
+    <h2 class="statement" style="font-size:64px">You can’t fake <span class="ac">a player getting better.</span></h2>
+    <ul class="pts">
+      <li>Tested on arenas <b>Sensei didn’t pick</b>.</li>
+      <li>Must win a game it <b>never trained on</b>.</li>
+      <li><b>Six anti-gaming checks</b>: collapse, noise, overfit.</li>
+    </ul>
+  </section>
+
+  <!-- 7 — NUMBERS -->
+  <section class="slide">
+    <div class="eyebrow"><span class="idx">06</span><span class="bar"></span>The Shape Of It</div>
+    <div class="bignum">4B<span class="u"> param Sensei</span></div>
+    <p class="lead" style="margin-top:14px">LoRA-tuned by us on Modal.</p>
+    <div class="statrow">
+      <div><div class="n">3 × PPO</div><div class="l">players per environment</div></div>
+      <div><div class="n">15</div><div class="l">held-out exam arenas</div></div>
+      <div><div class="n">2 + 1</div><div class="l">train games + held-out probe</div></div>
+      <div><div class="n">6</div><div class="l">anti-gaming checks</div></div>
+    </div>
+  </section>
+
+  <!-- 8 — RESULT -->
+  <section class="slide">
+    <div class="eyebrow"><span class="idx">07</span><span class="bar"></span>The Result</div>
+    <h2 class="statement" style="font-size:64px">Sensei’s player <span class="ac">won.</span></h2>
+    <p class="lead">King of the Hill, a game neither had seen. One environment each, head-to-head.</p>
+    <div class="versus">
+      <div class="vbox win"><div class="tag-win">WON</div><div class="t">Sensei’s Player</div><div class="s">trained in Sensei’s environment</div></div>
+      <div class="vs">vs</div>
+      <div class="vbox"><div class="t">Baseline’s Player</div><div class="s">trained by a base LLM</div></div>
+    </div>
+    <p class="lead" style="margin-top:26px">We improved an LLM’s ability to author RL environments. <b>The first brick of autoresearch.</b></p>
+  </section>
+
+  <!-- 10 — CLOSING -->
+  <section class="slide grid-bg" style="justify-content:center">
+    <div class="eyebrow">The Takeaway</div>
+    <h2 class="statement" style="font-size:84px;max-width:24ch">Sensei never plays. Its reward is <span class="ac">someone else’s learning.</span></h2>
+    <div class="kanji">道</div>
+  </section>
+
+</div>
+
+<div class="brand">道 Dojo</div>
+<div class="counter"><span id="cur">1</span> / <span id="tot">10</span></div>
+<div class="progress" id="prog"></div>
+<div class="nav">
+  <button id="prev" aria-label="Previous">‹</button>
+  <button id="next" aria-label="Next">›</button>
+</div>
+
+<script>
+  const stage=document.getElementById('stage');
+  function fit(){const s=Math.min(window.innerWidth/1280,window.innerHeight/720);
+    stage.style.transform=`translate(-50%,-50%) scale(${s})`;}
+  window.addEventListener('resize',fit); fit();
+
+  const slides=[...document.querySelectorAll('.slide')];
+  const cur=document.getElementById('cur'),tot=document.getElementById('tot');
+  const prevB=document.getElementById('prev'),nextB=document.getElementById('next'),prog=document.getElementById('prog');
+  let i=0; tot.textContent=slides.length;
+  function go(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    cur.textContent=i+1;
+    prog.style.width=((i+1)/slides.length*100)+'%';
+    prevB.disabled=i===0; nextB.disabled=i===slides.length-1;
+  }
+  nextB.onclick=()=>go(i+1); prevB.onclick=()=>go(i-1);
+  document.addEventListener('keydown',e=>{
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(i+1);}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
+    if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+  });
+  go(0);
+</script>
+</body>
+</html>
